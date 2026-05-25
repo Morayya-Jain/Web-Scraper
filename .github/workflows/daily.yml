@@ -2,14 +2,10 @@ name: daily-grad-jobs
 
 on:
   workflow_dispatch:
-  # Cron is commented out until you've verified the workflow locally / via
-  # one manual trigger. Uncomment when ready.
-  #
   # GitHub cron runs in UTC. 22:00 UTC = 08:00 AEST (winter) / 09:00 AEDT
   # (summer, when daylight savings is in effect Oct-Apr).
-  #
-  # schedule:
-  #   - cron: '0 22 * * *'
+  schedule:
+    - cron: '0 22 * * *'
 
 permissions:
   contents: write   # needed to commit the daily Markdown back to the repo
