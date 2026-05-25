@@ -8,8 +8,11 @@ the user's eyes and for Claude screening).
 from __future__ import annotations
 
 import html
+import logging
 import re
 from html.parser import HTMLParser
+
+log = logging.getLogger(__name__)
 
 
 class _TextExtractor(HTMLParser):
@@ -58,7 +61,9 @@ def strip_html(value: str | None) -> str:
         parser.close()
     except Exception:
         # html.parser can raise on truly malformed input; fall back to a
-        # naive tag-strip rather than crashing the whole pipeline.
+        # naive tag-strip rather than crashing the whole pipeline. Log so
+        # we know which source is producing input the parser can't chew.
+        log.debug("html.parser failed, using regex fallback", exc_info=True)
         text = re.sub(r"<[^>]+>", " ", unescaped)
     else:
         text = parser.text()

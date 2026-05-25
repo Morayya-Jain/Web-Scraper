@@ -32,11 +32,14 @@ def fetch() -> list[dict]:
     rows: list[dict] = []
     total_calls = 0
     url = _API + api_key
+    # Path-based auth means the real URL leaks the key on any logged failure.
+    # Pass a sanitised label to the HTTP helper so logs never see the secret.
+    safe_label = _API + "<key>"
 
     for term in SEARCH_TERMS:
         for loc in LOCATIONS:
             payload = {"keywords": term, "location": loc or "Australia"}
-            data = post_json(session, url, payload)
+            data = post_json(session, url, payload, log_label=safe_label)
             total_calls += 1
             polite_sleep()
             if not isinstance(data, dict):

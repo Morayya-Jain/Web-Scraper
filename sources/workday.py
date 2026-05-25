@@ -21,8 +21,6 @@ from __future__ import annotations
 import logging
 from urllib.parse import urljoin
 
-from htmlstrip import strip_html
-
 from ._ats import for_ats, passes_ats_filter
 from ._common import keep_rows, make_session, polite_sleep, post_json, row
 
@@ -75,10 +73,22 @@ def fetch() -> list[dict]:
                 location = p.get("locationsText", "")
                 if not passes_ats_filter(title, location):
                     continue
-                external = p.get("externalPath", "")
-                apply_url = (
-                    urljoin(public_root, external.lstrip("/")) if external else ""
-                )
+                external = p.get("externalPath", "") or ""
+                # externalPath today is of the form "/job/{loc}/{title}_{id}"
+                # but Workday could change it to "/{site}/job/..." - detect
+                # and don't double the {site} segment in that case.
+                if external.startswith(f"/{site}/"):
+                    apply_url = (
+                        f"https://{tenant}.{dc}.myworkdayjobs.com{external}"
+                    )
+                elif external:
+                    apply_url = urljoin(public_root, external.lstrip("/"))
+                else:
+                    apply_url = ""
+                # bulletFields is a list (typically just the req number).
+                # The real description only exists on the apply page itself;
+                # leave description empty - title + location are enough for
+                # dedupe + screening, and the URL has the full text.
                 rows.append(
                     row(
                         source=f"workday:{tenant}",
@@ -86,7 +96,7 @@ def fetch() -> list[dict]:
                         company=name,
                         location=location,
                         url=apply_url,
-                        description=strip_html(p.get("bulletFields", "") or ""),
+                        description="",
                         posted=p.get("postedOn", ""),
                     )
                 )

@@ -34,20 +34,31 @@ def polite_sleep(seconds: float = INTER_REQUEST_SLEEP) -> None:
     time.sleep(seconds)
 
 
-def get_json(session: requests.Session, url: str, **kwargs) -> dict | list | None:
-    """GET a JSON endpoint, returning the decoded body or None on any error."""
+def get_json(
+    session: requests.Session,
+    url: str,
+    *,
+    log_label: str | None = None,
+    **kwargs,
+) -> dict | list | None:
+    """GET a JSON endpoint, returning the decoded body or None on any error.
+
+    `log_label` lets callers pass a sanitised URL string for log messages -
+    useful when the real URL embeds a secret (e.g. Jooble's path-based key).
+    """
+    label = log_label or url
     try:
         resp = session.get(url, timeout=REQUEST_TIMEOUT, **kwargs)
     except requests.RequestException as exc:
-        log.warning("GET %s failed: %s", url, exc)
+        log.warning("GET %s failed: %s", label, exc)
         return None
     if resp.status_code >= 400:
-        log.warning("GET %s -> HTTP %s", url, resp.status_code)
+        log.warning("GET %s -> HTTP %s", label, resp.status_code)
         return None
     try:
         return resp.json()
     except ValueError as exc:
-        log.warning("GET %s returned non-JSON: %s", url, exc)
+        log.warning("GET %s returned non-JSON: %s", label, exc)
         return None
 
 
@@ -55,21 +66,27 @@ def post_json(
     session: requests.Session,
     url: str,
     payload: dict,
+    *,
+    log_label: str | None = None,
     **kwargs,
 ) -> dict | list | None:
-    """POST JSON and decode the response, returning None on any error."""
+    """POST JSON and decode the response, returning None on any error.
+
+    `log_label` lets callers pass a sanitised URL string for log messages.
+    """
+    label = log_label or url
     try:
         resp = session.post(url, json=payload, timeout=REQUEST_TIMEOUT, **kwargs)
     except requests.RequestException as exc:
-        log.warning("POST %s failed: %s", url, exc)
+        log.warning("POST %s failed: %s", label, exc)
         return None
     if resp.status_code >= 400:
-        log.warning("POST %s -> HTTP %s", url, resp.status_code)
+        log.warning("POST %s -> HTTP %s", label, resp.status_code)
         return None
     try:
         return resp.json()
     except ValueError as exc:
-        log.warning("POST %s returned non-JSON: %s", url, exc)
+        log.warning("POST %s returned non-JSON: %s", label, exc)
         return None
 
 

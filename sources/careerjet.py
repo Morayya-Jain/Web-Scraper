@@ -23,6 +23,10 @@ from ._common import get_json, keep_rows, make_session, polite_sleep, row
 
 log = logging.getLogger(__name__)
 
+# HTTP-only - Careerjet's public API does not accept TLS on this host
+# (port 443 refused as of 2026). The affid is the only "secret" here and
+# is also returned plaintext in client-side referer headers, so the
+# server-side cleartext exposure is bounded.
 _API = "http://public.api.careerjet.net/search"
 # Placeholder client IP; Careerjet just needs the field to be present.
 _CLIENT_IP = "127.0.0.1"

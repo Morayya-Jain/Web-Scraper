@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import csv
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 log = logging.getLogger(__name__)
@@ -22,7 +22,8 @@ CSV_COLUMNS = [
 
 
 def _timestamp() -> str:
-    return datetime.now().strftime("%Y%m%d_%H%M")
+    # UTC so filenames remain consistent across local dev and CI runners.
+    return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
 
 
 def _row_for_csv(r: dict) -> dict:
@@ -65,12 +66,10 @@ def _md_tag(r: dict, screening_active: bool) -> str:
 
 def write_markdown(rows: list[dict], output_dir: Path, ts: str) -> Path:
     path = output_dir / f"jobs_{ts}.md"
-    screening_active = any(r.get("eligible") in ("yes", "no", "unclear") and r.get("fit") for r in rows)
-    # If even one row has a `fit` annotation we treat screening as active for
-    # tag formatting purposes. Otherwise we show the source label.
-    if not screening_active:
-        screening_active = any("eligible" in r for r in rows)
-
+    # Screening runs always set `eligible` on every row (keyword-mode sets
+    # "unclear", Claude-mode sets one of yes/no/unclear). If even one row
+    # is missing the field we know screening didn't run (e.g. empty pipeline).
+    screening_active = bool(rows) and all("eligible" in r for r in rows)
     new_count = sum(1 for r in rows if r.get("is_new"))
 
     lines: list[str] = []
