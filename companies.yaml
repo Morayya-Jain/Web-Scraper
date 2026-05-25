@@ -1,0 +1,100 @@
+# Australian Graduate Job Finder - company seed list.
+#
+# Format: one top-level key per ATS, each holding a list of companies.
+# `name` is cosmetic; `token` is what the collector uses.
+#
+# How to grow this file:
+#   1. Visit the company's careers / open roles page.
+#   2. Look at the URL pattern:
+#        boards.greenhouse.io/<slug>          -> greenhouse, token=<slug>
+#        jobs.lever.co/<slug>                 -> lever, token=<slug>
+#        jobs.ashbyhq.com/<slug>              -> ashby, token=<slug>
+#        apply.workable.com/<slug>            -> workable, token=<slug>
+#        <slug>.recruitee.com                 -> recruitee, token=<slug>
+#        jobs.smartrecruiters.com/<slug>      -> smartrecruiters, token=<slug>
+#        <tenant>.<dc>.myworkdayjobs.com/<site>  -> workday, see README
+#   3. Add the entry under the matching ATS key and re-run main.py.
+#
+# Entries marked `# verified` were curl-tested at build time. Entries
+# marked `# verify` are best-effort guesses that returned no data on
+# verification - the slug is plausibly right but the company may use
+# a different ATS now. Keep them and update when you find the real one.
+#
+# Big consulting / banking / mining firms that use bespoke or unsupported
+# career sites (custom Workday Adaptive, SAP SuccessFactors, etc.) are
+# NOT listed here - Layer A (Adzuna/Jooble/Careerjet) covers them via
+# the aggregators that already crawl those sites.
+
+# ---------------------------------------------------------------------------
+# Greenhouse
+# ---------------------------------------------------------------------------
+greenhouse:
+  - { name: Culture Amp,       token: cultureamp }       # verified, AU-founded
+  - { name: Octopus Deploy,    token: octopusdeploy }    # verified, AU-founded
+  - { name: Block (Afterpay),  token: block }            # verified, owns Afterpay AU
+  - { name: Flexport,          token: flexport }         # verified, has AU office
+  - { name: Pleo,              token: pleo }             # verified, hires AU remote
+
+# ---------------------------------------------------------------------------
+# Lever
+# ---------------------------------------------------------------------------
+lever:
+  - { name: Deputy,            token: deputy }           # verified, AU-founded
+  - { name: Mable,             token: mable }            # verified, AU
+  - { name: Atlassian,         token: atlassian }        # verified slug; 0 current postings (uses ATS off-and-on)
+
+# ---------------------------------------------------------------------------
+# Ashby
+# ---------------------------------------------------------------------------
+ashby:
+  - { name: Airwallex,         token: airwallex }        # verified, AU-founded
+  - { name: Linear,            token: linear }           # verified, occasional AU hires
+  - { name: Vercel,            token: vercel }           # verified, occasional AU hires
+  - { name: Notion,            token: notion }           # verified, has AU presence
+
+# ---------------------------------------------------------------------------
+# Workable
+# ---------------------------------------------------------------------------
+workable:
+  - { name: Canva,             token: canva }            # verified slug, jobs come and go
+  - { name: Linktree,          token: linktree }         # verified slug, jobs come and go
+  - { name: Aircall,           token: aircall }          # verified, has AU hires
+
+# ---------------------------------------------------------------------------
+# Recruitee
+# ---------------------------------------------------------------------------
+recruitee:
+  # No AU companies seeded - Recruitee is more common with EU mid-sized
+  # employers. Add entries as you find them; the URL pattern is
+  # https://<slug>.recruitee.com.
+  []
+
+# ---------------------------------------------------------------------------
+# SmartRecruiters
+# ---------------------------------------------------------------------------
+smartrecruiters:
+  # All four return 200 but currently have no graduate postings. Slugs
+  # are plausibly correct - leaving them so they activate automatically
+  # if a role appears.
+  - { name: Bunnings,          token: BunningsGroup }        # verify - 0 current postings
+  - { name: Allianz Australia, token: AllianzAustralia }     # verify - 0 current postings
+  - { name: Coles Group,       token: ColesGroup }           # verify - 0 current postings
+  - { name: Tabcorp,           token: Tabcorp }              # verify - 0 current postings
+
+# ---------------------------------------------------------------------------
+# Workday
+# ---------------------------------------------------------------------------
+# Per-tenant URL shape: https://<tenant>.<dc>.myworkdayjobs.com/<site>
+# Discovery: visit careers page, open browser devtools -> Network tab ->
+# filter "wday/cxs". The XHR URL has the form
+#   https://<tenant>.<dc>.myworkdayjobs.com/wday/cxs/<tenant>/<site>/jobs
+# Copy the three slugs into the entry below. Confirm the {dc} carefully -
+# it can be wd1, wd3, wd5, etc.
+#
+# The entries below are best-effort defaults; verify each before relying.
+workday:
+  - { name: Telstra,   tenant: telstra,    dc: wd3, site: Telstra-Careers } # verify
+  - { name: NAB,       tenant: nab,        dc: wd3, site: NAB }             # verify
+  - { name: BHP,       tenant: bhp,        dc: wd3, site: BHP }             # verify
+  - { name: Westpac,   tenant: westpac,    dc: wd3, site: Westpac }         # verify
+  - { name: Coles,     tenant: colesgroup, dc: wd3, site: Colescareers }    # verify

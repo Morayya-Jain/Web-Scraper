@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+*.pyo
+
+# Raw CSV exports stay local; only the Markdown digest is committed.
+jobs_*.csv
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
