@@ -52,10 +52,38 @@ def test_au_scope_accepts(location):
         "Singapore (Remote)",
         "New York, NY",
         "Berlin, Germany",
+        # Regression: short AU state codes used to match as bare substrings,
+        # so US cities containing "wa"/"sa"/"act"/"nt" leaked through.
+        "Newark, NJ",            # "wa" inside "Newark"
+        "Waltham, MA",           # "wa" inside "Waltham"
+        "Santa Clara, CA",       # "sa" inside "Santa"
+        "Sacramento, CA",        # "sa" inside "Sacramento"
+        "Salt Lake City, UT",    # "sa" inside "Salt"
+        "Wawa, Ontario",         # "wa" inside "Wawa"
+        "Contact us",            # "act" / "nt" inside common words
+        "Anthropic, Hawaii",     # "nt" inside "Anthropic"
     ],
 )
 def test_au_scope_rejects(location):
     assert not is_in_au_scope(location), location
+
+
+@pytest.mark.parametrize(
+    "location",
+    [
+        "Sydney, NSW",
+        "Melbourne, VIC",
+        "Brisbane, QLD",
+        "Perth, WA",
+        "Adelaide, SA",
+        "Canberra, ACT",
+        "Hobart, TAS",
+        "Darwin, NT",
+    ],
+)
+def test_au_state_codes_accept_with_word_boundary(location):
+    """The AU state codes must still pass when properly delimited."""
+    assert is_in_au_scope(location), location
 
 
 # ---------------------------------------------------------------------------
@@ -138,11 +166,33 @@ def test_junior_rejects(title, description):
     assert not is_truly_junior(title, description), title
 
 
-def test_junior_accepts_zero_to_two_years():
-    """'0-2 years' should NOT be treated as 'wants experience'."""
-    assert is_truly_junior(
-        "Graduate Developer", "We expect 0-2 years of relevant experience."
-    )
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "We expect 0-2 years of relevant experience.",
+        "0 - 2 years experience required.",
+        "1 to 3 years of experience.",
+        "0 to 2 years experience.",
+        "1-3 years",
+        "Looking for someone with 0–2 years of experience.",   # en-dash
+    ],
+)
+def test_junior_accepts_grad_friendly_year_ranges(phrase):
+    """Ranges starting at 0 or 1 should NOT be treated as wants-experience."""
+    assert is_truly_junior("Graduate Developer", phrase), phrase
+
+
+@pytest.mark.parametrize(
+    "phrase",
+    [
+        "Requires 5+ years of relevant experience.",
+        "3 years experience minimum.",
+        "Minimum 4 years of experience required.",
+        "5 to 7 years experience.",                # range not starting at 0/1
+    ],
+)
+def test_junior_rejects_real_years_requirements(phrase):
+    assert not is_truly_junior("Graduate Developer", phrase), phrase
 
 
 # ---------------------------------------------------------------------------
@@ -176,6 +226,12 @@ def test_visa_blocker_catches(description):
         "Must have valid work rights.",
         "Open to graduates and recent international students.",
         "",
+        # Regression: a 485 visa GRANTS full unrestricted work rights, so
+        # these phrasings must NOT be pre-filtered out - they describe what
+        # a 485 holder already has.
+        "Must have unrestricted right to work in Australia.",
+        "Unrestricted right to live and work required.",
+        "Must have ongoing work rights in Australia.",
     ],
 )
 def test_visa_blocker_passes(description):

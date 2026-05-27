@@ -24,6 +24,7 @@ import requests
 from config import (
     AU_LOCATION_HINTS,
     AU_REMOTE_MARKERS,
+    AU_STATE_CODES,
     INTER_REQUEST_SLEEP,
     JUNIOR_HINTS,
     NON_AU_LOCATION_PREFIXES,
@@ -128,6 +129,16 @@ def get_html(
 # ---------------------------------------------------------------------------
 
 
+# Word-boundary regex for short AU state codes. We can't use bare
+# substring matching because "wa" is inside "Newark", "Waltham",
+# "Wawa"; "sa" is inside "Sacramento", "Santa Clara", "Salt Lake City";
+# etc. The codes are case-insensitive.
+_AU_STATE_RE = re.compile(
+    r"\b(" + "|".join(re.escape(c) for c in AU_STATE_CODES) + r")\b",
+    re.IGNORECASE,
+)
+
+
 def is_in_au_scope(location: str) -> bool:
     """Strict AU-only with AU-targeted remote.
 
@@ -144,8 +155,12 @@ def is_in_au_scope(location: str) -> bool:
     if any(prefix in loc for prefix in NON_AU_LOCATION_PREFIXES):
         return False
 
-    # AU city / state / "Australia"
+    # Full AU city name / "Australia" - safe as substring
     if any(hint in loc for hint in AU_LOCATION_HINTS):
+        return True
+
+    # AU state code - MUST be word-boundary matched to avoid US false positives
+    if _AU_STATE_RE.search(loc):
         return True
 
     # Remote, but only with AU marker
@@ -184,14 +199,37 @@ def is_tech_role(title: str, description: str = "") -> bool:
 # Pre-filter: junior
 # ---------------------------------------------------------------------------
 
-# "3+ years" / "5 years experience" / "Minimum 2 years" - any of these in
-# the description means the role wants experience and is dropped.
-# We DON'T reject ranges that include 0 ("0-2 years" / "1-3 years").
+# Match any "N years" / "N+ years" pattern (N >= 1).
 _YEARS_RE = re.compile(
-    r"(?<![0-1][-\s])"        # not preceded by "0-" or "1-"
-    r"\b([2-9]|[1-9]\d)\s*\+?\s*years?\b",
+    r"\b(\d+)\s*\+?\s*years?\b",
     re.IGNORECASE,
 )
+
+# Match grad-friendly ranges like "0-2 years", "0 - 3 years", "1 to 5 years"
+# (range starting from 0 or 1, with optional whitespace around the separator).
+_RANGE_YEARS_RE = re.compile(
+    r"\b[01]\s*(?:-|–|to)\s*\d+\s*\+?\s*years?\b",
+    re.IGNORECASE,
+)
+
+
+def _requires_years_of_experience(description: str) -> bool:
+    """Return True iff the description demands years of prior experience.
+
+    Logic: if a grad-friendly range ("0-3 years", "1 to 2 years", etc.) is
+    present we accept (the range starts from 0/1). Otherwise any
+    "N+ years" or "N years" mention with N >= 2 rejects.
+    """
+    if _RANGE_YEARS_RE.search(description):
+        return False
+    for match in _YEARS_RE.finditer(description):
+        try:
+            n = int(match.group(1))
+        except ValueError:
+            continue
+        if n >= 2:
+            return True
+    return False
 
 
 def is_truly_junior(title: str, description: str = "") -> bool:
@@ -204,7 +242,7 @@ def is_truly_junior(title: str, description: str = "") -> bool:
         return False
     if not any(hint in t for hint in JUNIOR_HINTS):
         return False
-    if _YEARS_RE.search(d):
+    if _requires_years_of_experience(d):
         return False
 
     return True

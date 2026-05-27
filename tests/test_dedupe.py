@@ -44,6 +44,29 @@ def test_keeps_careerjet_over_jooble():
     assert out[0]["source"] == "careerjet"
 
 
+def test_keeps_bespoke_over_aggregator():
+    """Bespoke scrapers must outrank aggregators - they have cleaner URLs
+    and more accurate metadata."""
+    rows = [
+        _row("adzuna"),
+        _row("bespoke:optiver"),
+    ]
+    out = dedupe(rows)
+    assert len(out) == 1
+    assert out[0]["source"] == "bespoke:optiver"
+
+
+def test_keeps_bespoke_over_standard_ats():
+    """Bespoke is also preferred over standard ATS when both have the role."""
+    rows = [
+        _row("greenhouse:janestreet"),
+        _row("bespoke:optiver"),
+    ]
+    out = dedupe(rows)
+    assert len(out) == 1
+    assert out[0]["source"] == "bespoke:optiver"
+
+
 def test_different_titles_dont_collapse():
     rows = [
         _row("adzuna", title="Graduate Software Engineer"),

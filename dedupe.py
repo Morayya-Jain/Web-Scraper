@@ -18,6 +18,10 @@ import logging
 log = logging.getLogger(__name__)
 
 _PRIORITY = {
+    # Direct-from-source layers (bespoke + standard ATS) have the most
+    # accurate metadata and the cleanest apply URLs - keep these over any
+    # aggregator copy of the same role.
+    "bespoke": 110,
     "greenhouse": 100,
     "lever": 100,
     "ashby": 100,

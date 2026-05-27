@@ -224,10 +224,18 @@ VISA_DISQUALIFIERS: list[str] = [
     "defence clearance",
     "must be eligible for clearance",
     "must be able to obtain clearance",
-    # ongoing work rights without 485 carve-out
-    "must have ongoing work rights in australia",
-    "must have unrestricted right to work",
-    "unrestricted right to live and work",
+    # work-rights phrasings that ARE satisfied by a 485 visa.
+    # Deliberately NOT pre-filtered here - they're ambiguous in isolation
+    # ("ongoing" can mean indefinite OR just continuous over the contract;
+    # "unrestricted right to work" is exactly what a 485 grants). Claude's
+    # 3-axis screen has the context to make the right call.
+    #   - "must have ongoing work rights"          -> let Claude judge
+    #   - "must have unrestricted right to work"   -> 485 satisfies
+    #   - "unrestricted right to live and work"    -> 485 satisfies
+    #
+    # We KEEP the unambiguous "we will not sponsor" phrasings: a 485 doesn't
+    # need sponsorship, but in practice this wording is used by employers
+    # who mean "PR-only" in shorthand.
     "no visa sponsorship",
     "we are unable to sponsor",
     "sponsorship is not available",
@@ -255,6 +263,13 @@ AU_LOCATION_HINTS: list[str] = [
     "newcastle",
     "wollongong",
     "geelong",
+]
+
+# Short AU state codes need word-boundary matching - bare substring
+# matching causes false positives ("wa" matches "Newark", "sa" matches
+# "Sacramento", "Salt Lake City"). The pre-filter applies these with
+# a `\b<code>\b` regex.
+AU_STATE_CODES: list[str] = [
     "nsw",
     "vic",
     "qld",
