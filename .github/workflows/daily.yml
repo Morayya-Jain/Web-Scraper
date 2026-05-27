@@ -1,11 +1,11 @@
-name: daily-grad-jobs
+name: grad-jobs
+
+# Manual-only by design: graduate postings last for weeks, and Claude
+# screening costs ~$0.05-$0.20 per run. Hit "Run workflow" in the
+# Actions tab when you want a fresh shortlist.
 
 on:
   workflow_dispatch:
-  # GitHub cron runs in UTC. 22:00 UTC = 08:00 AEST (winter) / 09:00 AEDT
-  # (summer, when daylight savings is in effect Oct-Apr).
-  schedule:
-    - cron: '0 22 * * *'
 
 permissions:
   contents: write   # needed to commit the daily Markdown back to the repo
@@ -17,8 +17,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          # Need full history so we can push the commit back without trouble
-          # when the default token has push perms.
           fetch-depth: 0
 
       - name: Set up Python
@@ -48,6 +46,6 @@ jobs:
           if git diff --staged --quiet; then
             echo "No new digest to commit."
           else
-            git commit -m "daily run: $(date -u +'%Y-%m-%d %H:%M UTC')"
+            git commit -m "manual run: $(date -u +'%Y-%m-%d %H:%M UTC')"
             git push
           fi

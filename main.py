@@ -50,6 +50,8 @@ _SOURCE_MODULES = [
     "sources.recruitee",
     "sources.smartrecruiters",
     "sources.workday",
+    # Layer C (bespoke direct-scrape)
+    "sources.bespoke.optiver",
 ]
 
 

@@ -4,12 +4,9 @@ GET http://public.api.careerjet.net/search
   ?keywords=...&location=...&locale_code=en_AU&affid=...
   &pagesize=...&page=...&user_ip=...&user_agent=...
 
-The API REQUIRES user_ip and user_agent (per docs); the values just need
-to be present and well-formed. We pass a static localhost IP and our own
-UA - Careerjet uses them only for analytics, not access control.
-
-Response: {"jobs": [{"title", "company", "locations", "description",
-                     "url", "date", "site"}, ...]}
+HTTP-only - port 443 is not open on the Careerjet public API host as of 2026.
+The affid is also returned in client-side referer headers, so the
+server-side cleartext exposure is bounded.
 """
 from __future__ import annotations
 
@@ -19,16 +16,18 @@ import os
 from config import LOCATIONS, RESULTS_PER_TERM, SEARCH_TERMS, USER_AGENT
 from htmlstrip import strip_html
 
-from ._common import get_json, keep_rows, make_session, polite_sleep, row
+from ._common import (
+    get_json,
+    keep_rows,
+    make_session,
+    passes_prefilter,
+    polite_sleep,
+    row,
+)
 
 log = logging.getLogger(__name__)
 
-# HTTP-only - Careerjet's public API does not accept TLS on this host
-# (port 443 refused as of 2026). The affid is the only "secret" here and
-# is also returned plaintext in client-side referer headers, so the
-# server-side cleartext exposure is bounded.
 _API = "http://public.api.careerjet.net/search"
-# Placeholder client IP; Careerjet just needs the field to be present.
 _CLIENT_IP = "127.0.0.1"
 
 
@@ -60,18 +59,18 @@ def fetch() -> list[dict]:
             if not isinstance(data, dict):
                 continue
             for r in data.get("jobs", []) or []:
-                rows.append(
-                    row(
-                        source="careerjet",
-                        title=r.get("title", ""),
-                        company=r.get("company", "") or "(unknown)",
-                        location=r.get("locations", ""),
-                        url=r.get("url", ""),
-                        description=strip_html(r.get("description", "")),
-                        posted=r.get("date", ""),
-                    )
+                candidate = row(
+                    source="careerjet",
+                    title=r.get("title", ""),
+                    company=r.get("company", "") or "(unknown)",
+                    location=r.get("locations", ""),
+                    url=r.get("url", ""),
+                    description=strip_html(r.get("description", "")),
+                    posted=r.get("date", ""),
                 )
+                if candidate and passes_prefilter(candidate):
+                    rows.append(candidate)
 
     kept = keep_rows(rows)
-    log.info("[careerjet] %d calls, %d raw, %d kept", total_calls, len(rows), len(kept))
+    log.info("[careerjet] %d calls, %d kept", total_calls, len(kept))
     return kept

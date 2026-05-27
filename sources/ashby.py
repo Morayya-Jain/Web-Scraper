@@ -1,20 +1,19 @@
-"""Ashby - public job board API, no auth.
-
-GET https://api.ashbyhq.com/posting-api/job-board/{token}?includeCompensation=true
-
-Response: {"apiVersion": "...", "jobs": [
-    {"id", "title", "location" (string), "secondaryLocations": [...],
-     "descriptionHtml", "descriptionPlain", "jobUrl", "applyUrl",
-     "publishedAt", "isRemote", "isListed", ...}, ...]}
-"""
+"""Ashby - public job board API, no auth."""
 from __future__ import annotations
 
 import logging
 
 from htmlstrip import strip_html
 
-from ._ats import for_ats, passes_ats_filter
-from ._common import get_json, keep_rows, make_session, polite_sleep, row
+from ._ats import for_ats
+from ._common import (
+    get_json,
+    keep_rows,
+    make_session,
+    passes_prefilter,
+    polite_sleep,
+    row,
+)
 
 log = logging.getLogger(__name__)
 
@@ -45,31 +44,24 @@ def fetch() -> list[dict]:
         for j in data.get("jobs", []) or []:
             if j.get("isListed") is False:
                 continue
-            title = j.get("title", "")
             location = j.get("location") or ""
             if j.get("isRemote") and "remote" not in location.lower():
                 location = f"{location} (Remote)".strip()
-            if not passes_ats_filter(title, location):
-                continue
             description = j.get("descriptionPlain") or strip_html(
                 j.get("descriptionHtml", "")
             )
-            rows.append(
-                row(
-                    source=f"ashby:{token}",
-                    title=title,
-                    company=name,
-                    location=location,
-                    url=j.get("applyUrl", "") or j.get("jobUrl", ""),
-                    description=description,
-                    posted=j.get("publishedAt", ""),
-                )
+            candidate = row(
+                source=f"ashby:{token}",
+                title=j.get("title", ""),
+                company=name,
+                location=location,
+                url=j.get("applyUrl", "") or j.get("jobUrl", ""),
+                description=description,
+                posted=j.get("publishedAt", ""),
             )
+            if candidate and passes_prefilter(candidate):
+                rows.append(candidate)
 
     kept = keep_rows(rows)
-    log.info(
-        "[ashby] %d companies, %d kept after AU+junior filter",
-        len(entries),
-        len(kept),
-    )
+    log.info("[ashby] %d companies, %d kept", len(entries), len(kept))
     return kept

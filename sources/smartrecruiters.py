@@ -1,26 +1,22 @@
 """SmartRecruiters - public posting API, no auth.
 
-GET https://api.smartrecruiters.com/v1/companies/{token}/postings
-
-Response: {"offset", "limit", "totalFound", "content": [
-    {"id", "name" (title), "ref", "company", "location":
-        {"city", "region", "country", "remote"},
-     "industry", "department", "function", "typeOfEmployment",
-     "experienceLevel", "customField", "releasedDate", "createdOn",
-     "ref", "applyUrl"? ...}, ...]}
-
-The detail endpoint gives the full job description, but it costs an
-extra request per posting. The brief permits "follow each posting's
-detail link for full text if needed" - we default to skipping it to
-keep the call budget small. The title + location are enough for the
-dedupe + screening surface; users follow the link for full text.
+We DON'T fetch each posting's detail endpoint - the listing-level
+title + location is enough for the pre-filter and Claude screening,
+and the apply URL has the full text.
 """
 from __future__ import annotations
 
 import logging
 
-from ._ats import for_ats, passes_ats_filter
-from ._common import get_json, keep_rows, make_session, polite_sleep, row
+from ._ats import for_ats
+from ._common import (
+    get_json,
+    keep_rows,
+    make_session,
+    passes_prefilter,
+    polite_sleep,
+    row,
+)
 
 log = logging.getLogger(__name__)
 
@@ -69,29 +65,18 @@ def fetch() -> list[dict]:
         if not isinstance(data, dict):
             continue
         for j in data.get("content", []) or []:
-            title = j.get("name", "")
-            location = _format_location(j.get("location"))
-            if not passes_ats_filter(title, location):
-                continue
-            rows.append(
-                row(
-                    source=f"smartrecruiters:{token}",
-                    title=title,
-                    company=name,
-                    location=location,
-                    url=_posting_url(j, token),
-                    # Full description omitted to save call budget; the
-                    # apply URL has it. Title + location still inform
-                    # dedupe and Claude screening.
-                    description="",
-                    posted=j.get("releasedDate", "") or j.get("createdOn", ""),
-                )
+            candidate = row(
+                source=f"smartrecruiters:{token}",
+                title=j.get("name", ""),
+                company=name,
+                location=_format_location(j.get("location")),
+                url=_posting_url(j, token),
+                description="",
+                posted=j.get("releasedDate", "") or j.get("createdOn", ""),
             )
+            if candidate and passes_prefilter(candidate):
+                rows.append(candidate)
 
     kept = keep_rows(rows)
-    log.info(
-        "[smartrecruiters] %d companies, %d kept after AU+junior filter",
-        len(entries),
-        len(kept),
-    )
+    log.info("[smartrecruiters] %d companies, %d kept", len(entries), len(kept))
     return kept

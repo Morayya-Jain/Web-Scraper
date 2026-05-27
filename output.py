@@ -1,4 +1,11 @@
-"""Write the daily CSV + Markdown shortlist."""
+"""Write the run's CSV + Markdown shortlist.
+
+v2 schema additions:
+  role_fit  (0-10)
+  level_fit (0-10)
+  visa_fit  (yes|no|unclear)
+The legacy `fit` and `eligible` columns are gone.
+"""
 from __future__ import annotations
 
 import csv
@@ -9,8 +16,9 @@ from pathlib import Path
 log = logging.getLogger(__name__)
 
 CSV_COLUMNS = [
-    "fit",
-    "eligible",
+    "role_fit",
+    "level_fit",
+    "visa_fit",
     "title",
     "company",
     "location",
@@ -22,22 +30,11 @@ CSV_COLUMNS = [
 
 
 def _timestamp() -> str:
-    # UTC so filenames remain consistent across local dev and CI runners.
     return datetime.now(timezone.utc).strftime("%Y%m%d_%H%M")
 
 
 def _row_for_csv(r: dict) -> dict:
-    return {
-        "fit": r.get("fit", ""),
-        "eligible": r.get("eligible", ""),
-        "title": r.get("title", ""),
-        "company": r.get("company", ""),
-        "location": r.get("location", ""),
-        "source": r.get("source", ""),
-        "posted": r.get("posted", ""),
-        "reason": r.get("reason", ""),
-        "url": r.get("url", ""),
-    }
+    return {col: r.get(col, "") for col in CSV_COLUMNS}
 
 
 def write_csv(rows: list[dict], output_dir: Path, ts: str) -> Path:
@@ -51,44 +48,44 @@ def write_csv(rows: list[dict], output_dir: Path, ts: str) -> Path:
     return path
 
 
-def _md_tag(r: dict, screening_active: bool) -> str:
+def _md_tag(r: dict) -> str:
     parts: list[str] = []
     if r.get("is_new"):
         parts.append("[new]")
-    if screening_active:
-        eligible = r.get("eligible", "")
-        fit = r.get("fit", "")
-        parts.append(f"fit {fit}, {eligible}")
-    else:
+    role = r.get("role_fit")
+    level = r.get("level_fit")
+    visa = r.get("visa_fit")
+    if role is not None and level is not None:
+        parts.append(f"role {role}/10 - level {level}/10 - visa {visa}")
+    elif "source" in r:
         parts.append(r.get("source", ""))
     return " | ".join(p for p in parts if p)
 
 
 def write_markdown(rows: list[dict], output_dir: Path, ts: str) -> Path:
     path = output_dir / f"jobs_{ts}.md"
-    # Screening runs always set `eligible` on every row (keyword-mode sets
-    # "unclear", Claude-mode sets one of yes/no/unclear). If even one row
-    # is missing the field we know screening didn't run (e.g. empty pipeline).
-    screening_active = bool(rows) and all("eligible" in r for r in rows)
     new_count = sum(1 for r in rows if r.get("is_new"))
 
     lines: list[str] = []
-    lines.append(f"# Australian Graduate Job Finder - {ts}")
+    lines.append(f"# Australian Graduate Tech Job Finder - {ts} UTC")
     lines.append("")
     lines.append(
-        f"{len(rows)} roles after dedupe and screening "
+        f"{len(rows)} roles after pre-filter + Claude screening "
         f"({new_count} new since last run)."
     )
     lines.append("")
     if not rows:
-        lines.append("_No roles matched today. Check the logs for per-source counts._")
+        lines.append(
+            "_No roles matched today. Check the logs for per-source counts; "
+            "tighten or loosen filters in `config.py` if needed._"
+        )
         lines.append("")
     for r in rows:
         title = r.get("title", "").strip() or "(untitled)"
         company = r.get("company", "").strip() or "(unknown)"
         location = r.get("location", "").strip()
         url = r.get("url", "").strip()
-        tag = _md_tag(r, screening_active)
+        tag = _md_tag(r)
         reason = r.get("reason", "").strip()
 
         header = f"- **[{title}]({url})** - {company}"
@@ -99,7 +96,7 @@ def write_markdown(rows: list[dict], output_dir: Path, ts: str) -> Path:
             meta_bits.append(tag)
         if meta_bits:
             header += "  \n  _" + " - ".join(meta_bits) + "_"
-        if reason and screening_active:
+        if reason:
             header += f"  \n  _{reason}_"
         lines.append(header)
     lines.append("")

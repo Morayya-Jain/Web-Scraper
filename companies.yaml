@@ -1,7 +1,10 @@
-# Australian Graduate Job Finder - company seed list.
+# Australian Graduate Job Finder - company seed list (v2).
 #
 # Format: one top-level key per ATS, each holding a list of companies.
 # `name` is cosmetic; `token` is what the collector uses.
+#
+# Tokens marked `# verified` were curl-tested at build time.
+# Tokens marked `# verify` are best-effort guesses you should confirm.
 #
 # How to grow this file:
 #   1. Visit the company's careers / open roles page.
@@ -14,26 +17,17 @@
 #        jobs.smartrecruiters.com/<slug>      -> smartrecruiters, token=<slug>
 #        <tenant>.<dc>.myworkdayjobs.com/<site>  -> workday, see README
 #   3. Add the entry under the matching ATS key and re-run main.py.
-#
-# Entries marked `# verified` were curl-tested at build time. Entries
-# marked `# verify` are best-effort guesses that returned no data on
-# verification - the slug is plausibly right but the company may use
-# a different ATS now. Keep them and update when you find the real one.
-#
-# Big consulting / banking / mining firms that use bespoke or unsupported
-# career sites (custom Workday Adaptive, SAP SuccessFactors, etc.) are
-# NOT listed here - Layer A (Adzuna/Jooble/Careerjet) covers them via
-# the aggregators that already crawl those sites.
 
 # ---------------------------------------------------------------------------
 # Greenhouse
 # ---------------------------------------------------------------------------
 greenhouse:
+  - { name: Jane Street,       token: janestreet }       # verified - quant, 200+ roles globally
+  - { name: IMC Trading,       token: imc }              # verified - quant, 130+ roles globally
   - { name: Culture Amp,       token: cultureamp }       # verified, AU-founded
   - { name: Octopus Deploy,    token: octopusdeploy }    # verified, AU-founded
   - { name: Block (Afterpay),  token: block }            # verified, owns Afterpay AU
   - { name: Flexport,          token: flexport }         # verified, has AU office
-  - { name: Pleo,              token: pleo }             # verified, hires AU remote
 
 # ---------------------------------------------------------------------------
 # Lever
@@ -41,7 +35,6 @@ greenhouse:
 lever:
   - { name: Deputy,            token: deputy }           # verified, AU-founded
   - { name: Mable,             token: mable }            # verified, AU
-  - { name: Atlassian,         token: atlassian }        # verified slug; 0 current postings (uses ATS off-and-on)
 
 # ---------------------------------------------------------------------------
 # Ashby
@@ -57,29 +50,24 @@ ashby:
 # ---------------------------------------------------------------------------
 workable:
   - { name: Canva,             token: canva }            # verified slug, jobs come and go
-  - { name: Linktree,          token: linktree }         # verified slug, jobs come and go
+  - { name: Linktree,          token: linktree }         # verified slug
   - { name: Aircall,           token: aircall }          # verified, has AU hires
 
 # ---------------------------------------------------------------------------
 # Recruitee
 # ---------------------------------------------------------------------------
-recruitee:
-  # No AU companies seeded - Recruitee is more common with EU mid-sized
-  # employers. Add entries as you find them; the URL pattern is
-  # https://<slug>.recruitee.com.
-  []
+recruitee: []
 
 # ---------------------------------------------------------------------------
 # SmartRecruiters
 # ---------------------------------------------------------------------------
 smartrecruiters:
-  # All four return 200 but currently have no graduate postings. Slugs
-  # are plausibly correct - leaving them so they activate automatically
-  # if a role appears.
-  - { name: Bunnings,          token: BunningsGroup }        # verify - 0 current postings
-  - { name: Allianz Australia, token: AllianzAustralia }     # verify - 0 current postings
-  - { name: Coles Group,       token: ColesGroup }           # verify - 0 current postings
-  - { name: Tabcorp,           token: Tabcorp }              # verify - 0 current postings
+  # These tokens return 200 but currently have no graduate postings;
+  # they activate automatically if a role appears.
+  - { name: Bunnings,          token: BunningsGroup }        # verify
+  - { name: Allianz Australia, token: AllianzAustralia }     # verify
+  - { name: Coles Group,       token: ColesGroup }           # verify
+  - { name: Tabcorp,           token: Tabcorp }              # verify
 
 # ---------------------------------------------------------------------------
 # Workday
@@ -88,13 +76,29 @@ smartrecruiters:
 # Discovery: visit careers page, open browser devtools -> Network tab ->
 # filter "wday/cxs". The XHR URL has the form
 #   https://<tenant>.<dc>.myworkdayjobs.com/wday/cxs/<tenant>/<site>/jobs
-# Copy the three slugs into the entry below. Confirm the {dc} carefully -
-# it can be wd1, wd3, wd5, etc.
+# Copy the three slugs into the entry below. The big AU banks (CBA, NAB,
+# ANZ, Westpac) and big tech (Atlassian) use Workday but with non-guessable
+# site IDs - you must discover each via devtools at least once.
 #
-# The entries below are best-effort defaults; verify each before relying.
+# All entries below are placeholders; replace once you confirm.
 workday:
   - { name: Telstra,   tenant: telstra,    dc: wd3, site: Telstra-Careers } # verify
   - { name: NAB,       tenant: nab,        dc: wd3, site: NAB }             # verify
   - { name: BHP,       tenant: bhp,        dc: wd3, site: BHP }             # verify
-  - { name: Westpac,   tenant: westpac,    dc: wd3, site: Westpac }         # verify
+  - { name: Westpac,   tenant: westpac,    dc: wd3, site: WestpacGroup }    # verify
   - { name: Coles,     tenant: colesgroup, dc: wd3, site: Colescareers }    # verify
+
+# ---------------------------------------------------------------------------
+# Bespoke (Layer C) - documented here for visibility.
+# The actual scrapers live in sources/bespoke/. companies.yaml is NOT used
+# to enable/disable them - they're hardcoded in main.py's source list.
+# ---------------------------------------------------------------------------
+# Currently active:
+#   sources/bespoke/optiver.py    # quant, WordPress AJAX
+#
+# Pending (need Playwright / cookies / JS):
+#   - Macquarie (custom SPA, no public JSON)
+#   - Atlassian (Workday tenant unknown without browser DevTools step)
+#   - Canva (Cloudflare-protected SPA)
+#   - SIG, Citadel (iCIMS / SPA with anti-bot)
+#   - Big 4 consulting (Deloitte / PwC / KPMG / EY) - all JS-rendered grad portals

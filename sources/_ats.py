@@ -10,8 +10,6 @@ import yaml
 
 from config import COMPANIES_FILE
 
-from ._common import looks_australian, looks_junior
-
 log = logging.getLogger(__name__)
 
 
@@ -33,11 +31,6 @@ def companies() -> dict[str, list[dict[str, Any]]]:
 def for_ats(name: str) -> list[dict[str, Any]]:
     """Companies configured under the given ATS key."""
     return companies().get(name, []) or []
-
-
-def passes_ats_filter(title: str, location: str) -> bool:
-    """ATS feeds list every open role; keep only AU + junior-titled ones."""
-    return looks_australian(location) and looks_junior(title)
 
 
 def ms_to_iso(ms: int | float | str | None) -> str:

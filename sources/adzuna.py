@@ -1,13 +1,12 @@
 """Adzuna - https://developer.adzuna.com
 
-GET https://api.adzuna.com/v1/api/jobs/au/search/{page}
-  ?app_id=...&app_key=...
-  &what=<keywords>&where=<city>
+GET https://api.adzuna.com/v1/api/jobs/au/search/1
+  ?app_id=...&app_key=...&what=<keywords>&where=<city>
   &results_per_page=<<=50>&max_days_old=<n>&sort_by=date
   &content-type=application/json
 
-Free tier ~250 calls/day. We iterate SEARCH_TERMS x LOCATIONS and grab
-just the first page (50 results) per pair to stay within budget.
+Free tier ~250 calls/day. With the v2 SEARCH_TERMS (9 terms) and a single
+location pass, that's 9 calls per run.
 """
 from __future__ import annotations
 
@@ -17,7 +16,14 @@ import os
 from config import LOCATIONS, MAX_DAYS_OLD, RESULTS_PER_TERM, SEARCH_TERMS
 from htmlstrip import strip_html
 
-from ._common import get_json, keep_rows, make_session, polite_sleep, row
+from ._common import (
+    get_json,
+    keep_rows,
+    make_session,
+    passes_prefilter,
+    polite_sleep,
+    row,
+)
 
 log = logging.getLogger(__name__)
 
@@ -55,18 +61,18 @@ def fetch() -> list[dict]:
             if not isinstance(data, dict):
                 continue
             for r in data.get("results", []) or []:
-                rows.append(
-                    row(
-                        source="adzuna",
-                        title=r.get("title", ""),
-                        company=(r.get("company") or {}).get("display_name", ""),
-                        location=(r.get("location") or {}).get("display_name", ""),
-                        url=r.get("redirect_url", ""),
-                        description=strip_html(r.get("description", "")),
-                        posted=r.get("created", ""),
-                    )
+                candidate = row(
+                    source="adzuna",
+                    title=r.get("title", ""),
+                    company=(r.get("company") or {}).get("display_name", ""),
+                    location=(r.get("location") or {}).get("display_name", ""),
+                    url=r.get("redirect_url", ""),
+                    description=strip_html(r.get("description", "")),
+                    posted=r.get("created", ""),
                 )
+                if candidate and passes_prefilter(candidate):
+                    rows.append(candidate)
 
     kept = keep_rows(rows)
-    log.info("[adzuna] %d calls, %d raw, %d kept", total_calls, len(rows), len(kept))
+    log.info("[adzuna] %d calls, %d kept", total_calls, len(kept))
     return kept
