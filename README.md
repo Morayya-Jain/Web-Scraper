@@ -45,6 +45,12 @@ Layer C: bespoke direct-scrape (Optiver via WP AJAX)      ~1 module today
                  sort by role_fit*level_fit desc
                 ↓
         jobs_<ts>.csv + jobs_<ts>.md  +  update seen.json
+
+`seen.json` tracks every role ever output. On the next run, any role
+whose key matches an entry in `seen.json` is dropped BEFORE Claude
+screening - so you only ever see a role once, and Claude API tokens
+are never spent re-screening jobs you've already considered. To
+re-surface old roles, delete or edit `seen.json` and re-run.
 ```
 
 The pre-filter is load-bearing: it removes ~70% of upstream noise so

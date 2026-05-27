@@ -49,35 +49,32 @@ def write_csv(rows: list[dict], output_dir: Path, ts: str) -> Path:
 
 
 def _md_tag(r: dict) -> str:
-    parts: list[str] = []
-    if r.get("is_new"):
-        parts.append("[new]")
     role = r.get("role_fit")
     level = r.get("level_fit")
     visa = r.get("visa_fit")
     if role is not None and level is not None:
-        parts.append(f"role {role}/10 - level {level}/10 - visa {visa}")
-    elif "source" in r:
-        parts.append(r.get("source", ""))
-    return " | ".join(p for p in parts if p)
+        return f"role {role}/10 - level {level}/10 - visa {visa}"
+    if "source" in r:
+        return r.get("source", "")
+    return ""
 
 
 def write_markdown(rows: list[dict], output_dir: Path, ts: str) -> Path:
     path = output_dir / f"jobs_{ts}.md"
-    new_count = sum(1 for r in rows if r.get("is_new"))
 
     lines: list[str] = []
     lines.append(f"# Australian Graduate Tech Job Finder - {ts} UTC")
     lines.append("")
     lines.append(
-        f"{len(rows)} roles after pre-filter + Claude screening "
-        f"({new_count} new since last run)."
+        f"{len(rows)} roles new since the last run. Roles you've already "
+        f"seen are tracked in `seen.json` and excluded from this list."
     )
     lines.append("")
     if not rows:
         lines.append(
-            "_No roles matched today. Check the logs for per-source counts; "
-            "tighten or loosen filters in `config.py` if needed._"
+            "_No new roles. Either nothing fresh has been posted, or every "
+            "match has been shown in a previous run. To re-surface old roles, "
+            "delete or edit `seen.json` and re-run._"
         )
         lines.append("")
     for r in rows:

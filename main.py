@@ -91,17 +91,20 @@ def main() -> int:
     # Late imports so a typo in a downstream module is reported clearly.
     from dedupe import dedupe
     from screen import screen
-    from state import load_seen, mark_new, save_seen
+    from state import filter_seen, load_seen, save_seen
     from output import write_outputs
 
     deduped = dedupe(raw)
-    screened = screen(deduped)
 
+    # Filter out roles we've already shown the user in a previous run -
+    # BEFORE Claude screening, to save API spend.
     previously_seen = load_seen()
-    flagged = mark_new(screened, previously_seen)
-    save_seen(flagged)
+    fresh = filter_seen(deduped, previously_seen)
 
-    csv_path, md_path = write_outputs(flagged, OUTPUT_DIR)
+    screened = screen(fresh)
+    save_seen(screened)
+
+    csv_path, md_path = write_outputs(screened, OUTPUT_DIR)
     log.info("done. CSV=%s MD=%s", csv_path, md_path)
     return 0
 

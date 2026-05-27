@@ -1,8 +1,17 @@
 """Persisted across-run state: `seen.json`.
 
-Used to flag roles that are new since the last run. Not used for
-filtering - the user still sees old roles in each digest; new ones just
-get a [new] marker in the Markdown.
+v3 semantics: roles whose dedupe key is in `seen.json` are FILTERED OUT
+of the next run's output entirely. This is stronger than the old
+"tag as [new]" behaviour and serves the user's actual workflow - once
+you've seen a role you've decided whether to apply, and don't want it
+clogging up the shortlist on subsequent runs.
+
+The filter is applied BEFORE Claude screening to save API spend - no
+point re-screening a role we're going to drop anyway.
+
+seen.json grows monotonically: save_seen() unions the just-output rows
+into the existing key set. If a future run finds nothing, the file is
+NOT wiped.
 """
 from __future__ import annotations
 
@@ -29,12 +38,36 @@ def load_seen() -> set[str]:
     return set(keys or [])
 
 
+def filter_seen(rows: list[dict], previously_seen: set[str]) -> list[dict]:
+    """Drop any row whose dedupe key has been output in a previous run.
+
+    This is the user-facing "don't show me jobs I've already considered"
+    rule. It runs after dedupe and before Claude screening, so old roles
+    don't burn API tokens.
+    """
+    if not previously_seen:
+        return rows
+    out: list[dict] = []
+    skipped = 0
+    for r in rows:
+        if dedupe_key(r) in previously_seen:
+            skipped += 1
+            continue
+        out.append(r)
+    log.info(
+        "filter_seen: skipped %d already-seen rows, %d new rows survive",
+        skipped,
+        len(out),
+    )
+    return out
+
+
 def save_seen(rows: list[dict]) -> None:
-    """Persist the union of previously-seen keys and this run's keys.
+    """Persist the union of previously-seen keys and this run's output keys.
 
     Union (not overwrite) is the load-bearing detail: if a run returns
-    zero rows because every source was down, we must NOT wipe history -
-    otherwise the next run would mark every old role as [new].
+    zero rows we must NOT wipe history - otherwise next run would
+    re-surface every old role.
     """
     current = {dedupe_key(r) for r in rows if r.get("title") and r.get("company")}
     previously = load_seen()
@@ -47,23 +80,9 @@ def save_seen(rows: list[dict]) -> None:
         with SEEN_FILE.open("w", encoding="utf-8") as fh:
             json.dump(payload, fh, indent=2)
         log.info(
-            "seen.json updated: %d keys (%d new this run)",
+            "seen.json updated: %d total keys (%d added this run)",
             len(merged),
             len(current - previously),
         )
     except OSError as exc:
         log.warning("could not write seen.json: %s", exc)
-
-
-def mark_new(rows: list[dict], previously_seen: set[str]) -> list[dict]:
-    """Annotate each row with is_new=True/False based on previously_seen."""
-    out = []
-    new_count = 0
-    for r in rows:
-        k = dedupe_key(r)
-        is_new = k not in previously_seen
-        if is_new:
-            new_count += 1
-        out.append({**r, "is_new": is_new})
-    log.info("flagged %d new roles since last run", new_count)
-    return out
