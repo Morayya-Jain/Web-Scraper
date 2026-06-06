@@ -10,6 +10,13 @@ on:
 permissions:
   contents: write   # needed to commit the daily Markdown back to the repo
 
+# Serialize runs so two never race to push the digest back to main. A second
+# run waits for the in-progress one to finish (and thus checks out the newer
+# main), instead of both committing on top of the same base and colliding.
+concurrency:
+  group: grad-jobs
+  cancel-in-progress: false   # queue, don't drop, a second run
+
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -47,5 +54,21 @@ jobs:
             echo "No new digest to commit."
           else
             git commit -m "manual run: $(date -u +'%Y-%m-%d %H:%M UTC')"
-            git push
+            # main can advance while the scraper runs (an overlapping run, or a
+            # manual push). Rebase onto the latest main and retry so the digest
+            # commit is not rejected as non-fast-forward. jobs_*.md filenames are
+            # uniquely timestamped and seen.json is union-merged on write, so a
+            # rebase can't lose data.
+            for attempt in 1 2 3 4 5; do
+              if git push origin HEAD:main; then
+                echo "Pushed on attempt $attempt."
+                break
+              fi
+              if [ "$attempt" = "5" ]; then
+                echo "::error::push still rejected after 5 attempts"
+                exit 1
+              fi
+              echo "push rejected; rebasing onto origin/main (attempt $attempt)"
+              git pull --rebase --autostash origin main
+            done
           fi
